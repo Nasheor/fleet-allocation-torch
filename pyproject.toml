@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fleet-allocation-torch"
+version = "0.1.0"
+description = "PhD fleet-allocation DQN and GCN training in PyTorch DistributedDataParallel, with the OR-Tools CP-SAT re-solve of the thesis models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Avinash Nagarajan" }]
+dependencies = [
+  "torch==2.15.0",
+  "numpy==2.5.4",
+  "ortools==9.15.6755",
+  "pyyaml==6.0.3",
+  "tqdm==4.70.1",
+  "pandas==3.1.0",
+  "pyarrow==26.0.0",
+  "matplotlib==3.11.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0", "ruff==0.17.3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
