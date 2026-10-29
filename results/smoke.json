@@ -1,0 +1,46 @@
+{
+  "tiny": {
+    "secs": 4,
+    "aevs": 24,
+    "petitions": 300,
+    "episodes": 20,
+    "rounds": 10,
+    "naive_trips": 198,
+    "workers": {
+      "1": {
+        "final_trips": 202,
+        "env_steps_total": 800,
+        "updates_total": 737,
+        "launcher": "env_rendezvous"
+      },
+      "2": {
+        "final_trips": 202,
+        "env_steps_total": 1600,
+        "updates_total": 1474,
+        "launcher": "env_rendezvous"
+      }
+    }
+  },
+  "torchrun_error": "torch.distributed.DistStoreError: use_libuv was requested but PyTorch was built without libuv support, run with USE_LIBUV=0 to disable it.",
+  "cpsat_tiny": {
+    "objective": 202.0,
+    "bound": 202.0,
+    "status": "OPTIMAL",
+    "allocated_aevs": 24
+  },
+  "cpsat_tiny_colours": {
+    "objective": 3.0,
+    "bound": 3.0,
+    "status": "OPTIMAL"
+  },
+  "cpsat_smoke_40": {
+    "objective": 16596.0,
+    "bound": 16596.0,
+    "gap": 0.0,
+    "status": "OPTIMAL",
+    "secs": 40,
+    "aevs": 1000,
+    "naive_trips": 15647
+  },
+  "smoke_ok": "yes"
+}

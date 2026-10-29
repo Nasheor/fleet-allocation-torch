@@ -69,6 +69,14 @@ def scaling_block(numbers: dict) -> list[str]:
         degraded = [r for r in worst if r["final_reward_vs_1_worker_pct"] < -5.0]
         if degraded:
             lines.append("Degradation beyond five percent: " + ", ".join(f"{r['workers']} workers" for r in degraded) + ".")
+    if s.get("launcher") and s["launcher"] != "torchrun":
+        lines.append("")
+        lines.append(
+            "Launcher: torchrun was tried first and could not create its rendezvous store on this machine, so the ranks were "
+            "started by the repo's own launcher with the env:// rendezvous that torchrun hands its workers (same training "
+            "script, same gloo process group, same DistributedDataParallel wrapper). "
+            f"Recorded torchrun error: `{s.get('torchrun_error')}`"
+        )
     if s.get("torchrun_errors"):
         lines.append("")
         for w, err in s["torchrun_errors"].items():
@@ -191,6 +199,10 @@ def smoke_block(numbers: dict) -> list[str]:
         numbers["smoke_tiny_colours"] = v
     lines.append(f"| smoke_ok | {s.get('smoke_ok')} |")
     numbers["smoke_ok"] = s.get("smoke_ok", "no")
+    launchers = {rec.get("launcher", "torchrun") for rec in t.get("workers", {}).values()}
+    if launchers and launchers != {"torchrun"}:
+        lines.append("")
+        lines.append(f"Launcher in the smoke run: {', '.join(sorted(launchers))} (see the scaling section).")
     return lines
 
 

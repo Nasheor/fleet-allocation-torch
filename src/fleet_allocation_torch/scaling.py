@@ -1,4 +1,11 @@
-"""Scaling runs: the same training on 1, 2 and 4 gloo workers started by torchrun, and the scaling table.
+"""Scaling runs: the same training on 1, 2 and 4 gloo workers, and the scaling table.
+
+The workers are started by torchrun. When torchrun cannot create its rendezvous store on this machine (the
+Windows CPU wheel of PyTorch is built without libuv and the torchrun agent of torch 2.15 asks for libuv
+regardless of ``USE_LIBUV``), the launcher records the error and starts the same number of ranks itself with
+the ``env://`` rendezvous (``MASTER_ADDR``, ``MASTER_PORT``, ``RANK``, ``WORLD_SIZE``), which is the
+rendezvous torchrun hands its workers. The training script, the process group and the DistributedDataParallel
+wrapper are the same either way, and the result file names the launcher used.
 
 Metrics per worker count: environment steps per second summed over ranks, minibatch updates per second summed
 over ranks, time to target (wall seconds until the evaluation first reaches 90 percent of the single-worker
@@ -30,27 +37,75 @@ def physical_cores() -> int | None:
         return None
 
 
-def torchrun_train(workers: int, instance: str, episodes: int, seed: int, rounds: int, out_dir: Path, tag: str,
-                   extra: list[str] | None = None, timeout: int = 3600) -> tuple[dict | None, str | None]:
-    """Launch ``fleet_allocation_torch.train`` under torchrun and return the final summary line, or the error."""
-    env = dict(os.environ, PYTHONPATH=str(ROOT / "src"))
-    env.setdefault("USE_LIBUV", "0")
+_TORCHRUN_ERROR: str | None = None
+
+
+def _train_args(instance: str, episodes: int, seed: int, rounds: int, out_dir: Path, tag: str, extra: list[str] | None) -> list[str]:
+    return ["-m", "fleet_allocation_torch.train", "--instance", instance, "--episodes", str(episodes), "--seed", str(seed),
+            "--rounds", str(rounds), "--out", str(out_dir), "--tag", tag, "--quiet", *(extra or [])]
+
+
+def _run_torchrun(workers: int, train_args: list[str], env: dict, timeout: int) -> str | None:
+    """Return None on success, otherwise the tail of the error output."""
     port = random.randint(29600, 29900)
-    cmd = [sys.executable, "-m", "torch.distributed.run", f"--nproc_per_node={workers}", f"--master_port={port}",
-           "-m", "fleet_allocation_torch.train", "--instance", instance, "--episodes", str(episodes), "--seed", str(seed),
-           "--rounds", str(rounds), "--out", str(out_dir), "--tag", tag, "--quiet", *(extra or [])]
+    cmd = [sys.executable, "-m", "torch.distributed.run", f"--nproc_per_node={workers}", f"--master_port={port}", *train_args]
     try:
         r = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired as e:
-        return None, f"timeout after {timeout} s: {str(e)[-500:]}"
+        return f"timeout after {timeout} s: {str(e)[-500:]}"
+    return None if r.returncode == 0 else (r.stderr or r.stdout)[-3000:]
+
+
+def _run_env_rendezvous(workers: int, train_args: list[str], env: dict, timeout: int) -> str | None:
+    """Start ``workers`` ranks of the training script with the env:// rendezvous. None on success."""
+    port = random.randint(29600, 29900)
+    procs = []
+    for rank in range(workers):
+        rank_env = dict(env, MASTER_ADDR="127.0.0.1", MASTER_PORT=str(port), WORLD_SIZE=str(workers), RANK=str(rank),
+                        LOCAL_RANK=str(rank), LOCAL_WORLD_SIZE=str(workers))
+        procs.append(subprocess.Popen([sys.executable, *train_args], cwd=ROOT, env=rank_env,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+    errors = []
+    for rank, proc in enumerate(procs):
+        try:
+            out, err = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            for q in procs:
+                q.kill()
+            return f"timeout after {timeout} s in the env:// launch of {workers} ranks"
+        if proc.returncode != 0:
+            errors.append(f"rank {rank} exited {proc.returncode}: {(err or out)[-1500:]}")
+    return "\n".join(errors) if errors else None
+
+
+def torchrun_train(workers: int, instance: str, episodes: int, seed: int, rounds: int, out_dir: Path, tag: str,
+                   extra: list[str] | None = None, timeout: int = 3600) -> tuple[dict | None, str | None]:
+    """Train with ``workers`` ranks and return the final summary line, or the error.
+
+    torchrun is tried first. If it fails because its rendezvous store needs libuv, the ranks are started with the
+    env:// rendezvous instead and the summary records ``launcher`` and ``torchrun_error``.
+    """
+    global _TORCHRUN_ERROR
+    env = dict(os.environ, PYTHONPATH=str(ROOT / "src"))
+    env.setdefault("USE_LIBUV", "0")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    train_args = _train_args(instance, episodes, seed, rounds, out_dir, tag, extra)
+    launcher = "torchrun"
+    err = _TORCHRUN_ERROR if _TORCHRUN_ERROR else _run_torchrun(workers, train_args, env, timeout)
+    if err is not None and "libuv" in err:
+        _TORCHRUN_ERROR = err
+        launcher = "env_rendezvous"
+        err = _run_env_rendezvous(workers, train_args, env, timeout)
     log = out_dir / f"{tag}.jsonl"
-    if r.returncode != 0 or not log.exists():
-        return None, (r.stderr or r.stdout)[-3000:]
+    if err is not None or not log.exists():
+        return None, err or f"no log written at {log}"
     rows = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines() if x.strip()]
     final = next((x for x in rows if x.get("final")), None)
     if final is None:
         return None, "no final summary line in " + str(log)
     final["evals"] = [x for x in rows if not x.get("final")]
+    final["launcher"] = launcher
+    final["torchrun_error"] = None if launcher == "torchrun" else _TORCHRUN_ERROR.strip().splitlines()[-1][:300]
     return final, None
 
 
@@ -106,6 +161,7 @@ def scaling_table(instance: str = "GHC_ai", episodes: int = 300, seed: int = 0, 
             "updates_total": s["updates_total"],
             "naive_trips": s["naive_trips"],
             "upper_bound": s["upper_bound"],
+            "launcher": s.get("launcher", "torchrun"),
         })
     result = {
         "instance": instance,
@@ -119,6 +175,8 @@ def scaling_table(instance: str = "GHC_ai", episodes: int = 300, seed: int = 0, 
         "target_fraction": 0.9,
         "target_trips": target,
         "rows": rows,
+        "launcher": sorted({r["launcher"] for r in rows})[0] if rows and len({r["launcher"] for r in rows}) == 1 else "mixed",
+        "torchrun_error": next((s.get("torchrun_error") for s in summaries.values() if s.get("torchrun_error")), None),
         "torchrun_errors": {str(k): v for k, v in errors.items()},
         "finished_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
     }

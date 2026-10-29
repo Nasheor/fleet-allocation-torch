@@ -57,10 +57,13 @@ def smoke() -> int:
             "final_trips": summary["eval_trips"],
             "env_steps_total": summary["env_steps_total"],
             "updates_total": summary["updates_total"],
+            "launcher": summary.get("launcher", "torchrun"),
         }
+        if summary.get("torchrun_error"):
+            out["torchrun_error"] = summary["torchrun_error"]
         print(f"smoke: {w} worker(s): {summary['env_steps_per_s']} steps/s, final trips {summary['eval_trips']}", flush=True)
     a = solve_allocation(tiny.values, tiny.num_evs, ub=tiny.upper_bound(), time_limit=30, workers=8)
-    out["cpsat_tiny"] = {"objective": a.objective, "bound": a.bound, "status": a.status, "allocation": a.solution}
+    out["cpsat_tiny"] = {"objective": a.objective, "bound": a.bound, "status": a.status, "allocated_aevs": int(sum(a.solution))}
     n, adj = line_graph(tiny.num_secs, tiny.connections)
     c = solve_colouring(n, adj, time_limit=30, workers=8)
     out["cpsat_tiny_colours"] = {"objective": c.objective, "bound": c.bound, "status": c.status}
