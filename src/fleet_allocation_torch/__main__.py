@@ -120,6 +120,8 @@ def parity(policy_path: Path | None = None) -> int:
         from .solve import greedy_episode, load_policy
 
         net, meta = load_policy(policy_path)
+        out["policy_source"] = policy_path.name
+        out["policy_workers"] = meta.get("world_size")
         for name in ("GHC_ai", "NYC_ai"):
             g = greedy_episode(net, load_instance(name))
             rec = out["instances"][name]

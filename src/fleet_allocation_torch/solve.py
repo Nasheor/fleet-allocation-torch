@@ -115,6 +115,8 @@ def policy_comparison(inst: Instance, record: dict, policy_path: Path, rounds: i
     out["naive_objective"] = record["naive_objective"]
     out["gap_to_solver"] = round((solver_obj - out["objective"]) / solver_obj, 6) if solver_obj else None
     out["gap_to_bound"] = round((bound - out["objective"]) / bound, 6) if bound else None
+    window = solver_obj - record["naive_objective"]
+    out["gain_share_of_solver"] = round((out["objective"] - record["naive_objective"]) / window, 6) if window else None
     return out
 
 

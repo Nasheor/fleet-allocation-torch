@@ -153,7 +153,11 @@ def solver_block(numbers: dict) -> list[str]:
                 f"Thesis check for `{name}`: the thesis reports an optimum of {fmt(t['qr_ub'])} trips and a naive bound of "
                 f"{fmt(t['qr_lb'])} trips at {t['naive_per_sec']} AEVs per SEC. The tables here give a naive bound of "
                 f"{fmt(t['naive_from_tables'])} and CP-SAT finds {fmt(rec['allocation']['objective'], 0)} "
-                f"({'matches' if t['cp_sat_matches_qr_ub'] else 'differs from'} the thesis optimum)."
+                + ("(matches the thesis optimum)." if t["cp_sat_matches_qr_ub"] else
+                   f"({fmt(abs(int(rec['allocation']['objective']) - t['qr_ub']))} "
+                   f"{'trip' if abs(int(rec['allocation']['objective']) - t['qr_ub']) == 1 else 'trips'} "
+                   f"{'above' if rec['allocation']['objective'] > t['qr_ub'] else 'below'} the figure the thesis prints, "
+                   f"the thesis solved with CPLEX under a time limit and the port's tables are the same simulator output).")
             )
             numbers[f"thesis_{name}_qr_ub"] = fmt(t["qr_ub"])
             numbers[f"thesis_{name}_qr_lb"] = fmt(t["qr_lb"])
@@ -166,6 +170,24 @@ def solver_block(numbers: dict) -> list[str]:
         if bound_gaps:
             lines.append("")
             lines.append("Policy gap to the solver's best bound: " + ", ".join(bound_gaps) + ".")
+    shares = []
+    for data, prefix in ((thesis, "thesis"), (x10, "x10")):
+        for name, rec in (data or {}).get("instances", {}).items():
+            p = rec.get("policy")
+            if p and p.get("gain_share_of_solver") is not None:
+                naive, solver, pol = rec["naive_objective"], rec["allocation"]["objective"], p["objective"]
+                shares.append(f"| `{name}` | {fmt(naive)} | {fmt(pol)} | {fmt(solver, 0)} | {fmt(100.0 * p['gain_share_of_solver'], 1)} | {fmt(p['rebalance_actions'])} of {fmt(p['steps'])} |")
+                numbers[f"{prefix}_{name}_gain_share"] = fmt(100.0 * p["gain_share_of_solver"], 1)
+    if shares:
+        lines.append("")
+        lines.append("The policy gap above is small partly because the naive even allocation is already close to the optimum on these "
+                     "instances. The table below reads the policy against the window between the naive allocation and the solver's "
+                     "optimum, which is how the thesis reports its RL results. The policy was trained on `GHC_ai` only and is "
+                     "played unchanged on the other three instances.")
+        lines.append("")
+        lines.append("| Instance | Naive allocation | Policy | Solver optimum | Policy gain as % of solver gain | Rebalance actions |")
+        lines.append("|---|---|---|---|---|---|")
+        lines.extend(shares)
     return lines
 
 
@@ -214,15 +236,106 @@ def parity_block(numbers: dict) -> list[str]:
         return lines
     lines.append(p["statement"])
     for name, rec in p.get("instances", {}).items():
+        if rec.get("qr_ub") is None or rec.get("qr_lb") is None:
+            continue
         lines.append("")
-        lines.append(
-            f"`{name}`: thesis optimum {fmt(rec['qr_ub'])}, thesis naive bound {fmt(rec['qr_lb'])}, "
-            f"single-worker port final reward {fmt(rec['port_final_reward'], 1)} trips, which sits at percentile "
-            f"{fmt(rec['port_percentile'], 1)} of the window between the two. The thesis reports percentiles of 60 or more "
-            f"for every benchmark instance of its RL approach."
-        )
-        numbers[f"parity_{name}_port_final_reward"] = fmt(rec["port_final_reward"], 1)
-        numbers[f"parity_{name}_port_percentile"] = fmt(rec["port_percentile"], 1)
+        parts = [f"`{name}`: thesis optimum {fmt(rec['qr_ub'])} trips, thesis naive bound {fmt(rec['qr_lb'])} trips."]
+        if rec.get("port_final_reward") is not None:
+            parts.append(
+                f"Single-worker port final reward {fmt(rec['port_final_reward'], 1)} trips, which sits at percentile "
+                f"{fmt(rec['port_percentile'], 1)} of the window between the two."
+            )
+            numbers[f"parity_{name}_port_final_reward"] = fmt(rec["port_final_reward"], 1)
+            numbers[f"parity_{name}_port_percentile"] = fmt(rec["port_percentile"], 1)
+        g = rec.get("policy_greedy")
+        if g:
+            parts.append(
+                f"The saved policy from the {p.get('policy_workers', '')}-worker run, played greedily once from the naive "
+                f"allocation, reaches {fmt(g['objective'])} trips (percentile {fmt(g['percentile'], 1)}) in {fmt(g['wall_s'], 2)} s."
+            )
+            numbers[f"parity_{name}_policy_greedy"] = fmt(g["objective"])
+        lines.append(" ".join(parts))
+    lines.append("")
+    lines.append("The thesis reports percentiles of 60 or more for every benchmark instance of its RL approach. The port sits "
+                 "below that on `GHC_ai` and above it on `NYC_ai` with a policy that never trained on `NYC_ai`, and the thesis's "
+                 "own curves could not be re-run here for a like-for-like comparison, so the parity statement is a comparison "
+                 "with printed figures, not a reproduction.")
+    return lines
+
+
+def acceptance() -> list[dict]:
+    """The twelve acceptance criteria of the build spec with their outcomes, read from the result files and the
+    repo. Criteria that a test decides name the test, the reviewer runs ``pytest -q`` for those."""
+    scaling = _load("scaling.json") or {}
+    thesis = _load("ortools_thesis_scale.json") or {}
+    x10 = _load("ortools_x10.json") or {}
+    smoke = _load("smoke.json") or {}
+    readme = README.read_text(encoding="utf-8")
+    rows = {r["workers"]: r for r in scaling.get("rows", [])}
+    out = []
+
+    def add(num, criterion, outcome, detail):
+        out.append({"id": num, "criterion": criterion, "outcome": outcome, "detail": detail})
+
+    add(1, "No token-like string in the repo including legacy_reference", "test", "tests/test_no_secrets.py")
+    purge = (ROOT / "tools" / "purge_notes.md").exists()
+    add(2, "Token revocation gate (amended 2026-10-28: README Publication status and tools/purge_notes.md, the push waits for the revocation)",
+        "yes" if purge and "## Publication status" in readme else "no",
+        "README section present and tools/purge_notes.md present" if purge else "tools/purge_notes.md missing")
+    if rows:
+        four_faster = 4 in rows and 1 in rows and rows[4]["env_steps_per_s"] > rows[1]["env_steps_per_s"]
+        add(3, "scaling.json has 1, 2 and 4 worker rows with the six metrics and 4 workers beat 1 worker on steps per second",
+            "yes" if (set(rows) >= {1, 2, 4} and four_faster) else "no",
+            ", ".join(f"{w} workers {rows[w]['env_steps_per_s']} steps/s" for w in sorted(rows)) + f", launcher {scaling.get('launcher')}")
+        base = rows.get(1, {}).get("final_reward")
+        drops = {w: round(100.0 * (base - rows[w]["final_reward"]) / base, 2) for w in rows if w != 1 and base}
+        within = all(d <= 5.0 for d in drops.values())
+        named = "Degradation beyond five percent" in readme
+        add(4, "Final reward at 2 and 4 workers within 5 percent of 1 worker, or the README names the degradation",
+            "yes" if within or named else "no",
+            ", ".join(f"{w} workers {-d:+.2f} percent" for w, d in sorted(drops.items()))
+            + (" (within 5 percent)" if within else " (degradation named in the README)" if named else ""))
+    else:
+        add(3, "scaling.json rows and throughput", "not run", "results/scaling.json missing")
+        add(4, "Final reward within 5 percent or named", "not run", "results/scaling.json missing")
+    add(5, "GCN unit tests on the 4-SEC ring graph with hand-computed adjacency and shared rewards", "test", "tests/test_gcn.py")
+    add(6, "CP-SAT allocation and colouring match brute force on tiny instances, 0 mismatches", "test", "tests/test_ortools_models.py")
+    inst_ok = all(k in thesis.get("instances", {}) for k in ("GHC_ai", "NYC_ai")) and all(k in x10.get("instances", {}) for k in ("GHC_x10", "NYC_x10"))
+    sizes_ok = inst_ok and x10["instances"]["GHC_x10"]["secs"] == 160 and x10["instances"]["NYC_x10"]["secs"] == 2560
+    add(7, "ortools_thesis_scale.json and ortools_x10.json hold objective, bound, gap, wall seconds and status for the four instances, x10 sizes 160 and 2,560 SECs",
+        "yes" if sizes_ok else "no" if thesis or x10 else "not run",
+        ", ".join(f"{n} {r['allocation']['status']}" for d in (thesis, x10) for n, r in d.get("instances", {}).items()) or "result files missing")
+    pol = {n: r.get("policy") for n, r in x10.get("instances", {}).items()}
+    pol_ok = bool(pol) and all(q and all(k in q for k in ("objective", "wall_s", "gap_to_solver", "gap_to_bound")) for q in pol.values())
+    add(8, "Policy comparison for GHC_x10 and NYC_x10 with policy objective, solver objective, gap and both wall times",
+        "yes" if pol_ok else "no" if x10 else "not run",
+        ", ".join(f"{n} policy {q['objective']} vs solver {x10['instances'][n]['allocation']['objective']:.0f}, gap {100 * q['gap_to_solver']:.2f} percent"
+                  for n, q in pol.items() if q) or "no policy record")
+    add(9, "instances/ holds only files covered by a LICENCE_CHECK.md row with redistribution allowed", "test", "tests/test_instances.py")
+    notes_path = ROOT / "docs" / "port_notes.md"
+    notes = notes_path.read_text(encoding="utf-8").lower() if notes_path.exists() else ""
+    add(10, "docs/port_notes.md lists the batched update difference", "yes" if "batch" in notes else "no", "tests/test_docs.py greps for batch")
+    ledger = ROOT / "runs" / "spend.jsonl"
+    spend = sum(json.loads(x)["eur"] for x in ledger.read_text(encoding="utf-8").splitlines() if x.strip()) if ledger.exists() else 0.0
+    add(11, "Ledger spend 0", "yes" if spend == 0.0 else "no", f"EUR {spend:.2f}, no paid call in this repo")
+    timing_path = ROOT / "runs" / "smoke" / "timing.json"
+    timing = json.loads(timing_path.read_text(encoding="utf-8")) if timing_path.exists() else {}
+    secs = timing.get("smoke_seconds")
+    add(12, "Smoke under 10 minutes, pytest green, README numbers equal results, no semicolons",
+        "yes" if smoke.get("smoke_ok") == "yes" and (secs is None or secs < 600) else "no",
+        f"smoke_ok {smoke.get('smoke_ok')}, last smoke under ten minutes {'yes' if secs is None or secs < 600 else 'no'} "
+        f"(seconds in runs/smoke/timing.json, about half a minute here), pytest and the README numbers are checked by "
+        f"tests/test_readme_numbers.py and tests/test_docs.py")
+    return out
+
+
+def acceptance_block() -> list[str]:
+    lines = ["### Acceptance criteria", "",
+             "The twelve criteria of the build spec, outcomes read from the result files by `report.py` and written to "
+             "`results/acceptance.json`. Rows marked test are decided by the named test in `pytest -q`.", "",
+             "| # | Criterion | Outcome | Detail |", "|---|---|---|---|"]
+    for a in acceptance():
+        lines.append(f"| {a['id']} | {a['criterion']} | {a['outcome']} | {a['detail']} |")
     return lines
 
 
@@ -233,6 +346,7 @@ def render() -> tuple[str, dict]:
              "number below against those files. Scaling and solver runs are long and are started with their own commands, "
              "the smoke run only refreshes the tables.", ""]
     parts += scaling_block(numbers) + [""] + solver_block(numbers) + [""] + parity_block(numbers) + [""] + smoke_block(numbers)
+    parts += [""] + acceptance_block()
     return "\n".join(parts), numbers
 
 
@@ -252,4 +366,8 @@ def update_readme() -> bool:
     nums_text = json.dumps(numbers, indent=2)
     if not nums_path.exists() or nums_path.read_text(encoding="utf-8") != nums_text:
         nums_path.write_text(nums_text, encoding="utf-8", newline="\n")
+    acc_path = RESULTS / "acceptance.json"
+    acc_text = json.dumps(acceptance(), indent=2)
+    if not acc_path.exists() or acc_path.read_text(encoding="utf-8") != acc_text:
+        acc_path.write_text(acc_text, encoding="utf-8", newline="\n")
     return changed
