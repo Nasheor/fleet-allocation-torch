@@ -83,22 +83,53 @@ def solve_allocation(values: np.ndarray, num_evs: int, ub: int | None = None, ti
     return SolveResult(objective, bound, _gap(objective, bound), wall, name, alloc)
 
 
-def solve_colouring(num_nodes: int, adjacency: list[list[int]], max_colours: int | None = None, time_limit: float = 60.0,
-                    workers: int = 8) -> SolveResult:
-    """Minimise the number of colours on a graph given as adjacency lists."""
-    max_colours = num_nodes if max_colours is None else int(max_colours)
-    model = cp_model.CpModel()
-    colour = [model.NewIntVar(0, max(max_colours - 1, 0), f"c_{i}") for i in range(num_nodes)]
+def symmetric_neighbours(num_nodes: int, adjacency: list[list[int]]) -> list[list[int]]:
+    """Neighbour lists with every edge present on both sides, sorted, without self loops. The adjacency lists
+    a caller passes may be one sided (an edge listed under one endpoint only), and the model must not read a
+    node with an empty list as isolated when another node lists it."""
+    out: list[set[int]] = [set() for _ in range(num_nodes)]
     for i in range(num_nodes):
         for j in adjacency[i]:
-            if j > i:
-                model.Add(colour[i] != colour[j])
-    first = next((i for i in range(num_nodes) if adjacency[i]), None)
+            if i != j:
+                out[i].add(j)
+                out[j].add(i)
+    return [sorted(s) for s in out]
+
+
+def greedy_colouring(num_nodes: int, neighbours: list[list[int]]) -> list[int]:
+    """First-fit colouring in node order. Its colour count is a valid upper bound for the minimum."""
+    colours = [-1] * num_nodes
+    for i in range(num_nodes):
+        taken = {colours[j] for j in neighbours[i] if colours[j] >= 0}
+        c = 0
+        while c in taken:
+            c += 1
+        colours[i] = c
+    return colours
+
+
+def solve_colouring(num_nodes: int, adjacency: list[list[int]], max_colours: int | None = None, time_limit: float = 60.0,
+                    workers: int = 8) -> SolveResult:
+    """Minimise the number of colours on a graph given as adjacency lists.
+
+    ``max_colours`` bounds the colour domain. When it is not given, the first-fit colouring's count is used,
+    which is an upper bound on the minimum and keeps the domain small on large graphs. The original model took
+    the bound from a previous solution in the same way."""
+    neighbours = symmetric_neighbours(num_nodes, adjacency)
+    if max_colours is None:
+        max_colours = max(greedy_colouring(num_nodes, neighbours), default=-1) + 1
+    max_colours = max(int(max_colours), 1 if num_nodes else 0)
+    model = cp_model.CpModel()
+    colour = [model.NewIntVar(0, max(max_colours - 1, 0), f"c_{i}") for i in range(num_nodes)]
+    edges = {(i, j) for i in range(num_nodes) for j in neighbours[i] if i < j}
+    for i, j in sorted(edges):
+        model.Add(colour[i] != colour[j])
+    first = next((i for i in range(num_nodes) if neighbours[i]), None)
     if first is not None:
         model.Add(colour[first] == 0)
-        model.Add(colour[adjacency[first][0]] == 1)
+        model.Add(colour[neighbours[first][0]] == 1)
     for i in range(num_nodes):
-        if not adjacency[i]:
+        if not neighbours[i]:
             model.Add(colour[i] == 0)
     used = model.NewIntVar(1 if num_nodes else 0, max(max_colours, 1), "colours")
     for i in range(num_nodes):
