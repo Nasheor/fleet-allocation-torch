@@ -1,0 +1,91 @@
+{
+  "time_limit_s": 1800.0,
+  "solver_workers": 8,
+  "instances": {
+    "GHC_x10": {
+      "secs": 160,
+      "aevs": 4000,
+      "petitions": 100000,
+      "cap": 100,
+      "connections": 160,
+      "naive_objective": 62522,
+      "sum_of_maxima": 75572,
+      "allocation": {
+        "objective": 62929.0,
+        "bound": 62929.0,
+        "gap": 0.0,
+        "wall_s": 5.3,
+        "status": "OPTIMAL",
+        "allocated_aevs": 4000
+      },
+      "colouring": {
+        "objective": 3.0,
+        "bound": 3.0,
+        "gap": 0.0,
+        "wall_s": 0.16,
+        "status": "OPTIMAL",
+        "nodes": 160,
+        "max_degree": 4,
+        "lower_bound_from_degree": 5
+      },
+      "policy": {
+        "objective": 62716,
+        "best_seen": 62716,
+        "wall_s": 0.268,
+        "rounds": 10,
+        "steps": 1600,
+        "rebalance_actions": 70,
+        "policy_source": "policy_GHC_ai_w4_s0.json",
+        "trained_on": "GHC_ai",
+        "trained_world_size": 4,
+        "naive_objective": 62522,
+        "gap_to_solver": 0.003385,
+        "gap_to_bound": 0.003385,
+        "gain_share_of_solver": 0.476658
+      }
+    },
+    "NYC_x10": {
+      "secs": 2560,
+      "aevs": 15360,
+      "petitions": 500000,
+      "cap": 24,
+      "connections": 2560,
+      "naive_objective": 392680,
+      "sum_of_maxima": 498064,
+      "allocation": {
+        "objective": 393648.0,
+        "bound": 393648.0,
+        "gap": 0.0,
+        "wall_s": 9.19,
+        "status": "OPTIMAL",
+        "allocated_aevs": 15360
+      },
+      "colouring": {
+        "objective": 3.0,
+        "bound": 3.0,
+        "gap": 0.0,
+        "wall_s": 2.39,
+        "status": "OPTIMAL",
+        "nodes": 2560,
+        "max_degree": 4,
+        "lower_bound_from_degree": 5
+      },
+      "policy": {
+        "objective": 392686,
+        "best_seen": 392686,
+        "wall_s": 3.943,
+        "rounds": 10,
+        "steps": 25600,
+        "rebalance_actions": 10,
+        "policy_source": "policy_GHC_ai_w4_s0.json",
+        "trained_on": "GHC_ai",
+        "trained_world_size": 4,
+        "naive_objective": 392680,
+        "gap_to_solver": 0.002444,
+        "gap_to_bound": 0.002444,
+        "gain_share_of_solver": 0.006198
+      }
+    }
+  },
+  "finished_at": "2026-10-29T10:26:33+00:00"
+}

@@ -1,0 +1,42 @@
+{
+  "legacy_reproduced": false,
+  "tensorflow_importable": false,
+  "statement": "Legacy curve not reproduced on this machine: TensorFlow is not importable in any environment here, so the original Keras agent was not run. The port is compared with the reward figures the thesis prints instead.",
+  "instances": {
+    "GHC_ai": {
+      "qr_ub": 5196,
+      "qr_lb": 4679,
+      "naive_from_tables": 4679,
+      "sum_of_maxima": 7563,
+      "port_final_reward": 4928.9,
+      "port_workers": 1,
+      "port_percentile": 48.34,
+      "policy_greedy": {
+        "objective": 4895,
+        "best_seen": 4895,
+        "wall_s": 0.028,
+        "rounds": 10,
+        "steps": 160,
+        "rebalance_actions": 27,
+        "percentile": 41.78
+      }
+    },
+    "NYC_ai": {
+      "qr_ub": 35724,
+      "qr_lb": 34091,
+      "naive_from_tables": 34091,
+      "sum_of_maxima": 50000,
+      "policy_greedy": {
+        "objective": 35109,
+        "best_seen": 35109,
+        "wall_s": 0.379,
+        "rounds": 10,
+        "steps": 2560,
+        "rebalance_actions": 790,
+        "percentile": 62.34
+      }
+    }
+  },
+  "policy_source": "policy_GHC_ai_w4_s0.json",
+  "policy_workers": 4
+}

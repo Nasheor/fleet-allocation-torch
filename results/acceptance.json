@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "criterion": "No token-like string in the repo including legacy_reference",
+    "outcome": "test",
+    "detail": "tests/test_no_secrets.py"
+  },
+  {
+    "id": 2,
+    "criterion": "Token revocation gate (amended 2026-10-28: README Publication status and tools/purge_notes.md, the push waits for the revocation)",
+    "outcome": "yes",
+    "detail": "README section present and tools/purge_notes.md present"
+  },
+  {
+    "id": 3,
+    "criterion": "scaling.json has 1, 2 and 4 worker rows with the six metrics and 4 workers beat 1 worker on steps per second",
+    "outcome": "yes",
+    "detail": "1 workers 553.13 steps/s, 2 workers 709.68 steps/s, 4 workers 1022.6 steps/s, launcher env_rendezvous"
+  },
+  {
+    "id": 4,
+    "criterion": "Final reward at 2 and 4 workers within 5 percent of 1 worker, or the README names the degradation",
+    "outcome": "yes",
+    "detail": "2 workers +1.22 percent, 4 workers +0.86 percent (within 5 percent)"
+  },
+  {
+    "id": 5,
+    "criterion": "GCN unit tests on the 4-SEC ring graph with hand-computed adjacency and shared rewards",
+    "outcome": "test",
+    "detail": "tests/test_gcn.py"
+  },
+  {
+    "id": 6,
+    "criterion": "CP-SAT allocation and colouring match brute force on tiny instances, 0 mismatches",
+    "outcome": "test",
+    "detail": "tests/test_ortools_models.py"
+  },
+  {
+    "id": 7,
+    "criterion": "ortools_thesis_scale.json and ortools_x10.json hold objective, bound, gap, wall seconds and status for the four instances, x10 sizes 160 and 2,560 SECs",
+    "outcome": "yes",
+    "detail": "GHC_ai OPTIMAL, NYC_ai OPTIMAL, GHC_x10 OPTIMAL, NYC_x10 OPTIMAL"
+  },
+  {
+    "id": 8,
+    "criterion": "Policy comparison for GHC_x10 and NYC_x10 with policy objective, solver objective, gap and both wall times",
+    "outcome": "yes",
+    "detail": "GHC_x10 policy 62716 vs solver 62929, gap 0.34 percent, NYC_x10 policy 392686 vs solver 393648, gap 0.24 percent"
+  },
+  {
+    "id": 9,
+    "criterion": "instances/ holds only files covered by a LICENCE_CHECK.md row with redistribution allowed",
+    "outcome": "test",
+    "detail": "tests/test_instances.py"
+  },
+  {
+    "id": 10,
+    "criterion": "docs/port_notes.md lists the batched update difference",
+    "outcome": "yes",
+    "detail": "tests/test_docs.py greps for batch"
+  },
+  {
+    "id": 11,
+    "criterion": "Ledger spend 0",
+    "outcome": "yes",
+    "detail": "EUR 0.00, no paid call in this repo"
+  },
+  {
+    "id": 12,
+    "criterion": "Smoke under 10 minutes, pytest green, README numbers equal results, no semicolons",
+    "outcome": "yes",
+    "detail": "smoke_ok yes, last smoke under ten minutes yes (seconds in runs/smoke/timing.json, about half a minute here), pytest and the README numbers are checked by tests/test_readme_numbers.py and tests/test_docs.py"
+  }
+]

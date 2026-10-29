@@ -1,0 +1,109 @@
+{
+  "time_limit_s": 600.0,
+  "solver_workers": 8,
+  "instances": {
+    "GHC_ai": {
+      "secs": 16,
+      "aevs": 400,
+      "petitions": 10000,
+      "cap": 100,
+      "connections": 16,
+      "naive_objective": 4679,
+      "sum_of_maxima": 7563,
+      "allocation": {
+        "objective": 5196.0,
+        "bound": 5196.0,
+        "gap": 0.0,
+        "wall_s": 0.12,
+        "status": "OPTIMAL",
+        "allocated_aevs": 400
+      },
+      "colouring": {
+        "objective": 3.0,
+        "bound": 3.0,
+        "gap": 0.0,
+        "wall_s": 0.01,
+        "status": "OPTIMAL",
+        "nodes": 16,
+        "max_degree": 4,
+        "lower_bound_from_degree": 5
+      },
+      "thesis": {
+        "qr_ub": 5196,
+        "qr_lb": 4679,
+        "naive_per_sec": 25,
+        "page": 83,
+        "naive_from_tables": 4679,
+        "naive_matches_qr_lb": true,
+        "cp_sat_matches_qr_ub": true
+      },
+      "policy": {
+        "objective": 4895,
+        "best_seen": 4895,
+        "wall_s": 0.028,
+        "rounds": 10,
+        "steps": 160,
+        "rebalance_actions": 27,
+        "policy_source": "policy_GHC_ai_w4_s0.json",
+        "trained_on": "GHC_ai",
+        "trained_world_size": 4,
+        "naive_objective": 4679,
+        "gap_to_solver": 0.057929,
+        "gap_to_bound": 0.057929,
+        "gain_share_of_solver": 0.417795
+      }
+    },
+    "NYC_ai": {
+      "secs": 256,
+      "aevs": 1536,
+      "petitions": 50000,
+      "cap": 24,
+      "connections": 256,
+      "naive_objective": 34091,
+      "sum_of_maxima": 50000,
+      "allocation": {
+        "objective": 35725.0,
+        "bound": 35725.0,
+        "gap": 0.0,
+        "wall_s": 0.46,
+        "status": "OPTIMAL",
+        "allocated_aevs": 1536
+      },
+      "colouring": {
+        "objective": 3.0,
+        "bound": 3.0,
+        "gap": 0.0,
+        "wall_s": 0.08,
+        "status": "OPTIMAL",
+        "nodes": 256,
+        "max_degree": 4,
+        "lower_bound_from_degree": 5
+      },
+      "thesis": {
+        "qr_ub": 35724,
+        "qr_lb": 34091,
+        "naive_per_sec": 6,
+        "page": 83,
+        "naive_from_tables": 34091,
+        "naive_matches_qr_lb": true,
+        "cp_sat_matches_qr_ub": false
+      },
+      "policy": {
+        "objective": 35109,
+        "best_seen": 35109,
+        "wall_s": 0.388,
+        "rounds": 10,
+        "steps": 2560,
+        "rebalance_actions": 790,
+        "policy_source": "policy_GHC_ai_w4_s0.json",
+        "trained_on": "GHC_ai",
+        "trained_world_size": 4,
+        "naive_objective": 34091,
+        "gap_to_solver": 0.017243,
+        "gap_to_bound": 0.017243,
+        "gain_share_of_solver": 0.623011
+      }
+    }
+  },
+  "finished_at": "2026-10-29T10:25:53+00:00"
+}
