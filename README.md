@@ -179,10 +179,19 @@ symmetry breaking. Tests check both models against brute force on tiny instances
 once on each ten-times instance from the even allocation. Its objective is compared with the solver's
 objective and with the solver's best bound.
 
+## Requirements
+
+- Python 3.11 or newer and git.
+- The commands below are written for Windows (`.venv\Scripts\`). On Linux or macOS use `.venv/bin/` instead.
+- Every dependency is pinned in `pyproject.toml`, and `requirements.lock` records the full resolved set.
+- No API key, no account and no download. The instances are in `instances/`.
+- PyTorch is installed from the CPU wheel index first, as shown below. No GPU is needed.
+- The scaling run starts up to four worker processes. The smoke run takes about half a minute.
+
 ## How to run
 
 ```
-C:/Users/nagar/anaconda3/python.exe -m venv .venv
+python -m venv .venv
 .venv\Scripts\python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 .venv\Scripts\python -m pip install -e .[dev]
 set PYTHONPATH=src
@@ -255,6 +264,32 @@ source is in the repo, only SEC positions, SEC connections and per-SEC counts.
 See `LICENCE_CHECK.md`. No personal data is used. The original thesis code in `legacy_reference/` is the
 author's own and keeps the Apache 2.0 licence file it came with. The port and everything else here is MIT.
 
+## Repository layout
+
+| Path | What it holds |
+|---|---|
+| `src/fleet_allocation_torch/dqn.py`, `gcn.py` | The Deep Q-learning agent ported to PyTorch and the completed graph convolutional experience sharing |
+| `src/fleet_allocation_torch/train.py`, `scaling.py` | Distributed training with DistributedDataParallel over gloo, and the 1, 2 and 4 worker scaling runs |
+| `src/fleet_allocation_torch/ortools_models.py`, `solve.py` | The two thesis optimisation models in OR-Tools CP-SAT, the solves and the learned-policy comparison |
+| `src/fleet_allocation_torch/instances.py`, `generator.py`, `build_instances.py` | The instance format, the generator and the builder of the released instances |
+| `src/fleet_allocation_torch/report.py` | The README tables rendered from `results/*.json` |
+| `src/fleet_allocation_torch/__main__.py` | The command line: `smoke`, `instances`, `scaling`, `solve-thesis`, `solve-x10`, `parity`, `report` |
+| `instances/` | The released benchmark instances with their own README |
+| `legacy_reference/` | The thesis code the port was made from, kept for comparison and not run |
+| `docs/port_notes.md` | What changed between the TensorFlow original and the port |
+| `tools/purge_notes.md` | The notes on the history clean-up described under Publication status |
+| `results/` | The JSON files behind every number in this README |
+| `tests/` | The test suite |
+| `LICENCE_CHECK.md` | Source, licence and permitted use of every outside input |
+
+## Tests
+
+`python -m pytest -q` runs without a key or a download. The suite covers the smoke run, the environment dynamics, the DQN update, the GCN layer, the instance files and generator, the CP-SAT models against small instances with known optima, the results files, the documentation checks, the absence of key-like strings, and every number in this README against `results/*.json`.
+
 ## Licence
 
 MIT, Avinash Nagarajan.
+
+## Author
+
+Avinash Nagarajan ([github.com/Nasheor](https://github.com/Nasheor)). Questions and bug reports are welcome through the issue tracker of this repository.
